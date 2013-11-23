@@ -56,6 +56,8 @@ type Channel struct {
 	acks  []chan uint64
 	nacks []chan uint64
 
+	ack sync.Mutex // struct field mutex
+
 	// When in confirm mode, track publish counter and order confirms
 	confirms       tagSet
 	publishCounter uint64
@@ -530,6 +532,8 @@ func (me *Channel) NotifyConfirm(ack, nack chan uint64) (chan uint64, chan uint6
 // Since the acknowledgments may come out of order, scan the heap
 // until found.  In most cases, only the head will be found.
 func (me *Channel) confimOne(tag uint64, ch []chan uint64) {
+	me.ack.Lock()
+	defer me.ack.Unlock()
 	me.m.Lock()
 	defer me.m.Unlock()
 
@@ -559,6 +563,8 @@ func (me *Channel) confimOne(tag uint64, ch []chan uint64) {
 // Instead of pushing the pending acknowledgments, deliver them as we should ack
 // all up until this tag.
 func (me *Channel) confimMultiple(tag uint64, ch []chan uint64) {
+	me.ack.Lock()
+	defer me.ack.Unlock()
 	me.m.Lock()
 	defer me.m.Unlock()
 
@@ -1220,6 +1226,9 @@ func (me *Channel) Publish(exchange, key string, mandatory, immediate bool, msg 
 		return err
 	}
 
+	me.ack.Lock()
+	defer me.ack.Unlock()
+
 	if err := me.send(me, &basicPublish{
 		Exchange:   exchange,
 		RoutingKey: key,
@@ -1398,6 +1407,8 @@ exception could occur if the server does not support this method.
 
 */
 func (me *Channel) Confirm(noWait bool) error {
+	me.ack.Lock()
+	defer me.ack.Unlock()
 	me.m.Lock()
 	defer me.m.Unlock()
 
