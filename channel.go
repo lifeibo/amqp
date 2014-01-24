@@ -537,7 +537,7 @@ func (me *Channel) confimOne(tag uint64, ch []chan uint64) {
 	me.m.Lock()
 	defer me.m.Unlock()
 
-	if me.confirms != nil {
+	if me.confirms != nil && !me.noNotify {
 		var unacked []uint64
 
 		for {
