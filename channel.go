@@ -1407,11 +1407,6 @@ exception could occur if the server does not support this method.
 
 */
 func (me *Channel) Confirm(noWait bool) error {
-	me.ack.Lock()
-	defer me.ack.Unlock()
-	me.m.Lock()
-	defer me.m.Unlock()
-
 	if err := me.call(
 		&confirmSelect{Nowait: noWait},
 		&confirmSelectOk{},
