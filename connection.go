@@ -20,6 +20,56 @@ import (
 const defaultHeartbeat = 10 * time.Second
 const defaultConnectionTimeout = 30 * time.Second
 
+const (
+	readWriteTimeout         = time.Second * 30
+)
+
+type TimeoutConn struct {
+	conn    net.Conn
+	timeout time.Duration
+}
+
+func NewTimeoutConn(conn net.Conn, timeout time.Duration) *TimeoutConn {
+	return &TimeoutConn{
+		conn:    conn,
+		timeout: timeout,
+	}
+}
+
+func (c *TimeoutConn) Read(b []byte) (n int, err error) {
+	c.SetReadDeadline(time.Now().Add(c.timeout))
+	return c.conn.Read(b)
+}
+
+func (c *TimeoutConn) Write(b []byte) (n int, err error) {
+	c.SetWriteDeadline(time.Now().Add(c.timeout))
+	return c.conn.Write(b)
+}
+
+func (c *TimeoutConn) Close() error {
+	return c.conn.Close()
+}
+
+func (c *TimeoutConn) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
+}
+
+func (c *TimeoutConn) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
+}
+
+func (c *TimeoutConn) SetDeadline(t time.Time) error {
+	return c.conn.SetDeadline(t)
+}
+
+func (c *TimeoutConn) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+
+func (c *TimeoutConn) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
+}
+
 // Config is used in DialConfig and Open to specify the desired tuning
 // parameters used during a connection open handshake.  The negotiated tuning
 // will be stored in the returned connection's Config field.
@@ -136,10 +186,12 @@ func DialConfig(url string, config Config) (*Connection, error) {
 
 	addr := net.JoinHostPort(uri.Host, strconv.FormatInt(int64(uri.Port), 10))
 
-	conn, err = net.DialTimeout("tcp", addr, config.ConnectionTimeout)
+    s_conn, err := net.DialTimeout("tcp", addr, config.ConnectionTimeout)
 	if err != nil {
 		return nil, err
 	}
+
+    conn = NewTimeoutConn(s_conn, readWriteTimeout)
 
 	// Heartbeating hasn't started yet, don't stall forever on a dead server.
 	if err := conn.SetReadDeadline(time.Now().Add(config.ConnectionTimeout)); err != nil {
