@@ -107,8 +107,10 @@ func (me *Channel) shutdown(e *Error) {
 
 		// Notify RPC if we're selecting
 		if e != nil {
-			me.errors <- e
+            e = ErrClosed
 		}
+
+		me.errors <- e
 
 		me.consumers.closeAll()
 
